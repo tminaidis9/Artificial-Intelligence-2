@@ -1,0 +1,70 @@
+# Dataset encoding and columns names
+DATASET_COLUMNS=['ids','text','target','party']
+DATASET_ENCODING = "UTF-8"
+
+# Reading train and valid set and adding both on a DataFrame (df)
+df = pd.read_csv('train_set.csv', encoding=DATASET_ENCODING, names=DATASET_COLUMNS)
+df2 = pd.read_csv('valid_set.csv',encoding=DATASET_ENCODING,names=DATASET_COLUMNS)
+
+df = pd.concat([df, df2.iloc[1:]], ignore_index=True)
+
+print("\n------------ Creating a new CSV file ----------------\n")
+print("\n -------------- /// Data Process \\\ ----------------\n")
+# Plotting the distribution for dataset.
+ax = df.groupby('target').count().plot(kind='bar', title='Distribution of data',legend=False)
+ax.set_xticklabels(['Sentiment','NEUTRAL','NEGATIVE','POSITIVE'], rotation=0)
+
+# Storing data in lists.
+sns.countplot(x='target', data=df)
+
+# -- Select text target and ids columns --
+df = df[['ids','text','target']]
+
+# -- Cleaning text -- 
+df['text'] = df['text'].apply(lambda x: cleaning_txt(x)) # Cleaning # and @anythinng
+df['text'] = df['text'].apply(lambda x: cleaning_repeating_char(x)) # Cleaning repeating characters 
+df['text'] = df['text'].apply(lambda x: cleaning_URLs(x)) # Cleaning URLs
+df['text'] = df['text'].apply(lambda x: cleaning_punctuations(x)) # Cleaning punctuations
+df['text'] = df['text'].apply(lambda x: cleaning_numbers(x)) # Cleaning numbers 0-9 and all greek numbers 
+df['text'] = df['text'].apply(lambda x: split_stacked_words(x))
+df['text'] = df['text'].apply(lambda x: remove_greek_numerals(x))
+df['text'] = df['text'].apply(lambda x: remove_single_letter_words(x))
+df['text'] = df['text'].apply(lambda x: remove_greek_stopwords(x))
+df['text'] = df['text'].apply(lambda x: lemmatization(x))
+df['text'] = df['text'].apply(lambda x: remove_diacritics(x))
+
+# -- Text tokenization and stemming--
+df['text'] = df['text'].apply(lambda x: word_tokenize(x))
+df['text'] = df['text'].apply(lambda x: stemming_and_making_txt(x))
+
+df.to_csv("train_set_new.csv",index=False,encoding=DATASET_ENCODING)
+
+#       Training lines until 36631        #
+#       Valid set lines 36632-41864       #
+
+print("\n ------------ /// Data Process Done\\\ --------------\n")
+print(" ------------ New CSV Created ----------------- ")
+
+print("\n------------ Starting editing the new CSV ----------------\n")
+print(" /// Word2Vec \\\ ")
+
+DATASET_COLUMNS = ['ids','text','target']
+df = pd.read_csv('train_set_new.csv', encoding=DATASET_ENCODING)
+df = df.iloc[1:]
+df.fillna("", inplace=True)
+
+#   ---------- Subsampling - Shrinking ----------   #
+
+df['text'] = df['text'].apply(lambda x:word_tokenize(x))                                                      #  <- Again tokenize the context                  #
+
+word_frequency = {}
+for tokens in df['text']:
+    for word in tokens:
+        if word in word_frequency:
+            word_frequency[word] += 1
+        else:
+            word_frequency[word] = 1
+
+df['text'] = df['text'].apply(lambda x: subsample(x,word_frequency))                                       #  <- Make sumsamble for the word2vec             #
+df['text'] = df['text'].apply(lambda x: shrinking(x))                                                   #  <- Make sumsamble for the word2vec             #
+
